@@ -13,7 +13,8 @@ workbench keeps its craft queue and quality, a grave keeps its corpse, a zombie 
 ## Install
 
 1. Install BepInEx 5 for Graveyard Keeper.
-2. Drop `MoveBuildings.dll` into `BepInEx/plugins/MoveBuildings/`.
+2. Download `MoveBuildings.dll` from the [latest release](https://github.com/Jebearssica/graveyard-keeper-move-buildings/releases/latest)
+   (or build it from source) and drop it into `BepInEx/plugins/MoveBuildings/`.
 3. Start the game.
 
 ## Usage
