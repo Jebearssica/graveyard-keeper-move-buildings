@@ -156,12 +156,19 @@ internal static class SelfTest
 
             // Same call the row click performs.
             craftGui.OnCraft(moveEntry.craft_definition);
+            var gridShown = BuildGrid.me != null && BuildGrid.me.gameObject.activeSelf;
             Plugin.Log.LogInfo(
-                $"[SELFTEST] after entry click: move_mode={BuildMoveMode.Active}, game_mode={MainGame.me.game_mode}");
+                $"[SELFTEST] after entry click: move_mode={BuildMoveMode.Active}, game_mode={MainGame.me.game_mode}, build_grid={gridShown}");
 
             if (!BuildMoveMode.Active)
             {
                 Plugin.Log.LogError("[SELFTEST] FAIL: move mode did not start");
+                return;
+            }
+
+            if (Plugin.ShowBuildGrid.Value && !gridShown)
+            {
+                Plugin.Log.LogError("[SELFTEST] FAIL: build grid is not visible while picking");
                 return;
             }
 

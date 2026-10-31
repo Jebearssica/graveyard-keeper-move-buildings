@@ -11,6 +11,9 @@ internal static class Patches
         MoveSession.Tick();
         BuildMoveMode.Tick();
         SelfTest.Tick();
+#if DEMO
+        Demo.Tick();
+#endif
     }
 
     /// <summary>Adds the "move building" row to the build desk window, right after the vanilla "remove" row.</summary>

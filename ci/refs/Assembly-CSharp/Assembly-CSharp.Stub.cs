@@ -25,14 +25,25 @@ public class BaseGUI : global::UnityEngine.MonoBehaviour
     public void Open() { }
 }
 
+public class BaseItemCellElements
+{
+    public global::UI2DSprite icon;
+}
+
+public class BaseItemCellGUI : global::UnityEngine.MonoBehaviour
+{
+    public global::BaseItemCellElements x1;
+}
+
 public class BuildGrid : global::UnityEngine.MonoBehaviour
 {
+    public static global::UnityEngine.Vector2 GRID_CHECK_BOX_SIZE;
     public static global::BuildGrid me { get; }
     public void ClearPreviousTotemRadius(global::System.Boolean apply_colors) { }
     public static global::System.String GetCurrentSubZoneID() { return default; }
-    public static global::System.Boolean IsCellBusy(global::UnityEngine.Vector2 pos, global::System.Collections.Generic.List<global::UnityEngine.Collider2D> target_colliders = default) { return default; }
     public void MoveBuildGridTo(global::UnityEngine.Vector2 pos) { }
     public static void ShowBuildGrid(global::System.Boolean show, global::System.Boolean ignore_repeating = false, global::System.String custom_sub_zone = "") { }
+    public static global::System.Boolean SkipCollider(global::UnityEngine.Collider2D collider, global::WorldGameObject owner = default) { return default; }
 }
 
 public class BuildModeGUI : global::BaseGUI
@@ -87,6 +98,7 @@ public class CraftGUI : global::BaseCraftGUI
 public class CraftItemGUI : global::UnityEngine.MonoBehaviour
 {
     public global::CraftDefinition craft_definition;
+    public global::BaseItemCellGUI item_gui;
     public global::UILabel label_name;
     public void Draw(global::CraftDefinition craft_definition) { }
 }
@@ -123,7 +135,6 @@ public class FloatingWorldGameObject : global::UnityEngine.MonoBehaviour
 public class FlowGridCell : global::UnityEngine.MonoBehaviour
 {
     public global::FlowGridCell.CellType cell_type { get; }
-    public global::System.Boolean IsInsideWorldZone(global::System.String zone_id, global::System.String sub_zone_id) { return default; }
     public enum CellType
     {
         None = 0,
@@ -256,6 +267,11 @@ public class MultiInventory
 {
 }
 
+public static class NGUIExtensionMethods
+{
+    public static void DrawAndResize(this global::UI2DSprite ui_sprite, global::UnityEngine.Sprite sprite) { }
+}
+
 public class ObjectCraftDefinition : global::CraftDefinition
 {
     public global::ObjectCraftDefinition.BuildType build_type;
@@ -318,6 +334,7 @@ public class WorldGameObject : global::CustomNetworkBehaviour
     public global::System.Boolean is_removed;
     public global::ObjectDefinition obj_def;
     public global::System.String obj_id;
+    public global::UnityEngine.Transform tf;
     public global::System.Int64 unique_id;
     public global::System.Int32 variation;
     public global::System.Int32 variation_2;
@@ -328,7 +345,6 @@ public class WorldGameObject : global::CustomNetworkBehaviour
     public void ForceInitOptimizedColliders() { }
     public global::WorldZone GetMyWorldZone() { return default; }
     public global::System.String GetMyWorldZoneId() { return default; }
-    public void MoveWhenPlacingGlobalPos(global::UnityEngine.Vector2 pos) { }
     public void RecalculateGridShape() { }
     public void RecalculateZoneBelonging() { }
     public void Redraw(global::System.Boolean force_redraw = false, global::System.Boolean force_redraw_part = false, global::System.Boolean draw_puff = false) { }
@@ -352,8 +368,14 @@ public static class WorldMap
     public static global::System.Collections.Generic.List<global::WorldGameObject> objs { get; }
 }
 
+public class WorldSubZone : global::UnityEngine.MonoBehaviour
+{
+    public global::System.String sub_zone_id;
+}
+
 public class WorldZone : global::UnityEngine.MonoBehaviour
 {
+    public global::System.String id;
     public global::UnityEngine.Transform center_tf { get; }
     public static global::WorldZone GetZoneByID(global::System.String id, global::System.Boolean null_is_error = true) { return default; }
     public void Recalculate() { }

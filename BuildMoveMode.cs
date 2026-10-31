@@ -13,7 +13,7 @@ internal static class BuildMoveMode
 {
     internal const string MoveCraftId = "_move_";
 
-    private const string MoveIcon = "i_hand";
+    private const string MoveIconName = "i_hand_one";
 
     private static bool _picking;
 
@@ -30,14 +30,34 @@ internal static class BuildMoveMode
         var craft = new ObjectCraftDefinition
         {
             id = MoveCraftId,
-            icon = MoveIcon,
+            icon = MoveIconName,
             custom_name = Labels.MoveBuilding
         };
 
         var item = craftGui.craft_item_prefab.Copy();
         GJL.EnsureChildLabelsHasCorrectFont(item.gameObject, false);
         item.Draw(craft);
-        craftGui.list_items.Add(item);
+
+        // Same blue build tile as the neighbouring rows, but with a four-direction arrow.
+        var icon = MoveIcon.Get();
+        if (icon != null && item.item_gui != null && item.item_gui.x1 != null)
+        {
+            item.item_gui.x1.icon.DrawAndResize(icon);
+        }
+
+        // Keep the row next to the vanilla "remove" row and above the fold: the previous layout put it last, where
+        // short craft lists clip it out of the scroll view.
+        var index = Math.Max(0, craftGui.list_items.Count - 1);
+        craftGui.list_items.Insert(index, item);
+        item.SetActive(true);
+
+        // The visual order comes from the transform hierarchy, not from list_items.
+        item.transform.SetSiblingIndex(index);
+
+        if (craftGui.craft_list_grid != null)
+        {
+            craftGui.craft_list_grid.Reposition();
+        }
     }
 
     /// <summary>Called when the player picks the move entry in the build desk window.</summary>
@@ -56,18 +76,14 @@ internal static class BuildMoveMode
 
         // Same hand-off the vanilla "_remove_" entry performs.
         GUIElements.me.craft.Hide();
-        BuildGrid.ShowBuildGrid(false);
+        BuildGridView.Hide();
 
         me.EnterBuildMode();
 
         var zone = me.build_mode_logics.cur_build_zone;
-        if (BuildGrid.me != null)
+        if (zone != null)
         {
-            BuildGrid.ShowBuildGrid(true, true);
-            if (zone != null)
-            {
-                BuildGrid.me.MoveBuildGridTo(zone.center_tf.position);
-            }
+            BuildGridView.ShowAt(zone.center_tf.position);
         }
 
         GUIElements.me.hud.Hide();
@@ -158,7 +174,7 @@ internal static class BuildMoveMode
 
         if (BuildGrid.me != null)
         {
-            BuildGrid.ShowBuildGrid(false, true);
+            BuildGridView.Hide();
             BuildGrid.me.ClearPreviousTotemRadius(true);
         }
 

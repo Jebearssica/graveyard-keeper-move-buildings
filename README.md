@@ -10,6 +10,8 @@ workbench keeps its craft queue and quality, a grave keeps its corpse, a zombie 
 给《墓地守护者 1》加的 BepInEx 模组：在建造台界面里多出一行「移动建筑」，把已有建筑直接搬到新位置，
 不拆除、不重建，所以箱子等容器里的物品全部保留。
 
+![Moving a furnace and an anvil from the build desk window](docs/move-buildings.gif)
+
 ## Install
 
 1. Install BepInEx 5 for Graveyard Keeper.
@@ -20,19 +22,20 @@ workbench keeps its craft queue and quality, a grave keeps its corpse, a zombie 
 ## Usage
 
 1. Use a build desk to open the building window (the same window where *Remove* lives).
-2. Scroll to the bottom of the list and click **Move building** (「移动建筑」).
+2. Click **Move building** (「移动建筑」) next to *Remove*.
 3. The window closes and the building grid appears. Click a building to pick it up.
    - Mouse: move the preview, **left click** to place, **right click** to cancel.
    - Rotation keys rotate the preview when the object supports variations.
-4. After placing, the pick mode stays active so more buildings can be moved. **Right click / Back** leaves the mode
-   and reopens the build desk window.
+4. After a successful placement the pick mode stays active, so the next building can be picked right away. A rejected
+   placement keeps the current building in hand. **Right click / Back** leaves the mode and reopens the build desk
+   window.
 
 ## How contents survive a move
 
 All persistent state of a building lives on its `WorldGameObject.data` (`Item`), e.g. a chest's contents in
 `data.inventory`. On placement the mod only:
 
-- writes the new `transform.position` (through the vanilla `MoveWhenPlacingGlobalPos`)
+- writes the new `transform.position` (the same value the preview shows, without the vanilla rounding to a full cell)
 - updates `variation` when the player actually rotated the preview
 - refreshes position-dependent caches: `RefreshPositionCache`, `RecalculateGridShape`,
   `ChunkedGameObject.RecalculateChunk`, `UpdatePathCell` (A* navmesh), `RecalculateZoneBelonging` (zone membership and
@@ -84,17 +87,27 @@ Release builds are compiled with `DebugType=none` and a `PathMap`, so the assemb
 
 ## Implementation notes
 
-- A Harmony postfix on `CraftGUI.AddRemoveBuildingItem` appends the extra row next to the vanilla *Remove* row, and a
-  postfix on `CraftGUI.SwitchTab` keeps it visible on every craft tab (the vanilla *Remove* row gets the same special
-  treatment).
+- A Harmony postfix on `CraftGUI.AddRemoveBuildingItem` inserts the extra row in front of the vanilla *Remove* row
+  (both list order and transform order), and a postfix on `CraftGUI.SwitchTab` keeps it visible on every craft tab
+  (the vanilla *Remove* row gets the same special treatment).
 - A Harmony prefix on `CraftGUI.OnCraft` turns the extra row into the pick mode instead of a craft.
+- The row icon is a self-made 32x32 PNG embedded in the DLL, drawn in the vanilla build-tile style (blue tile, white
+  four-direction arrow) and registered through `UI2DSprite.DrawAndResize`.
 - The preview and the placement validation reuse the vanilla `FloatingWorldGameObject` API
   (`CreateFloatingWorldObjectById`, `MoveCurrentFloatingObject`, `RotateCurrentFloatingObject`), so the preview, grid
   snapping and red "cannot place" feedback match the normal build flow.
-- Availability matches `FloatingWorldGameObject.RecalculateAvailability`: per-cell `BuildGrid.IsCellBusy` plus
-  `FlowGridCell.IsInsideWorldZone`. Objects that do not belong to a `WorldZone` may move freely.
-- Movement is restricted to the object's own `WorldZone` when it has one, which prevents states like a grave placed on
-  the street.
+- Availability matches `FloatingWorldGameObject.RecalculateAvailability` (per-cell `BuildGrid.IsCellBusy` plus the
+  zone test the build grid uses for its colours), with two deliberate differences: the object being moved - and
+  anything it already overlapped - never blocks its own destination, and cells of its previous footprint are always
+  accepted, so a building that shares ground with decorations can be nudged at all.
+- Objects whose pivot sits outside every zone get the zone found under their footprint, so the zone rule still applies
+  to them; only objects that really live outside all zones may move freely.
+- The placement writes the preview position verbatim. `MoveWhenPlacingGlobalPos` rounds through
+  `RoundAndSortComponent`, and a finished building snaps to a full 96 px cell while the preview only snaps to a third
+  of it, which used to move the object up to half a cell away from where it was shown.
+- The build grid is re-shown through one helper that moves it and recomputes its colours, because `RefreshGrid()`
+  samples the world around the grid's current position; moving it without a refresh offset the coloured cells from the
+  terrain.
 - The original object's colliders are temporarily disabled while the preview is active (and restored afterwards) so it
   does not count as occupying its own target cells.
 - Any error path runs the same teardown: stop the preview, restore colours/colliders, leave build mode.
@@ -103,8 +116,12 @@ Release builds are compiled with `DebugType=none` and a `PathMap`, so the assemb
 
 - Objects can only be moved inside their original `WorldZone`.
 - NPCs and mobs are never movable.
-- Vanilla placement snaps to the build grid, so a move can shift an off-grid object by up to half a cell (48 px).
 - A handful of quest props are hard-coded by position; the "buildable objects only" default keeps them out of reach.
+
+## Development
+
+`Demo.cs` is a recording helper for the GIF above. It is compiled only with `-p:Demo=true`, loads the newest save and
+replays a scripted move, so a capture can be taken without touching the mouse. It is never part of a release build.
 
 ## License
 

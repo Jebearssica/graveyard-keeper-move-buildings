@@ -14,6 +14,8 @@ internal static class MoveSession
     private const string PlaceSuffix = "_place";
     private const float GridSize = 96f;
     private const float PickedUpAlpha = 0.35f;
+    private const int BusyMask = 8389121; // layers 0/9/23, the mask BuildGrid.IsCellBusy uses
+    private const int ZoneMask = 524288; // layer 19, WorldZone / WorldSubZone colliders
 
     private static readonly Dictionary<Collider2D, bool> ColliderStates = new();
     private static readonly List<SpriteColorState> SpriteStates = new();
@@ -29,6 +31,7 @@ internal static class MoveSession
     private static bool _keepBuildMode;
     private static string _savedBuildZoneId = string.Empty;
     private static WorldZone _savedBuildZone;
+    private static string _lastAvailabilityReport = string.Empty;
 
     internal static bool Active => _target != null;
 
@@ -67,6 +70,7 @@ internal static class MoveSession
             if (IsConfirmPressed() && FloatingWorldGameObject.can_be_built)
             {
                 Commit();
+                ConsumeConfirmPress();
                 return;
             }
 
@@ -118,6 +122,16 @@ internal static class MoveSession
             Commit();
         }
     }
+
+#if DEMO
+    internal static void CancelForDemo()
+    {
+        if (Active)
+        {
+            Cancel();
+        }
+    }
+#endif
 
     private static bool CanContinue()
     {
@@ -256,9 +270,10 @@ internal static class MoveSession
     {
         _keepBuildMode = keepBuildMode;
         _target = target;
-        _zoneId = target.GetMyWorldZoneId();
+        _zoneId = ResolveZoneId(target);
         _zone = string.IsNullOrEmpty(_zoneId) ? null : WorldZone.GetZoneByID(_zoneId, false);
         _originalBounds = ComputeBounds(target);
+        _lastAvailabilityReport = string.Empty;
 
         SaveAndDisableColliders(target);
         SaveAndDimSprites(target);
@@ -278,10 +293,9 @@ internal static class MoveSession
         logics._cur_build_zone = _zone ?? MainGame.me.player.GetMyWorldZone();
         logics._multi_inventory = null;
 
-        if (Plugin.ShowBuildGrid.Value && BuildGrid.me != null)
+        if (Plugin.ShowBuildGrid.Value)
         {
-            BuildGrid.ShowBuildGrid(true, true);
-            BuildGrid.me.MoveBuildGridTo(target.transform.position);
+            BuildGridView.ShowAt(target.transform.position);
         }
 
         if (!keepBuildMode)
@@ -329,6 +343,14 @@ internal static class MoveSession
             return;
         }
 
+#if DEMO
+        if (Demo.PreviewTarget.HasValue)
+        {
+            FloatingWorldGameObject.MoveCurrentFloatingObject(Demo.PreviewTarget.Value, false);
+            return;
+        }
+#endif
+
         var gridPos = (Vector2)cam.ScreenToWorldPoint(Input.mousePosition) / GridSize;
         FloatingWorldGameObject.MoveCurrentFloatingObject(gridPos, false);
     }
@@ -360,8 +382,25 @@ internal static class MoveSession
     }
 
     /// <summary>
-    ///     Same rules vanilla uses in <see cref="FloatingWorldGameObject.RecalculateAvailability" />, except that an
-    ///     object that does not live inside a <see cref="WorldZone" /> is still allowed to move around freely.
+    ///     Swallows the click that placed a building, so the pick step that resumes right after it in the same frame does
+    ///     not grab the building that was just put down.
+    /// </summary>
+    internal static void ConsumeConfirmPress()
+    {
+        if (LazyInput.gamepad_active)
+        {
+            LazyInput.ClearKeyDown(GameKey.Interaction);
+        }
+        else
+        {
+            LazyInput.ClearKeyDown(GameKey.LeftClick);
+        }
+    }
+
+    /// <summary>
+    ///     Same rules vanilla uses in <see cref="FloatingWorldGameObject.RecalculateAvailability" />, with two
+    ///     deliberate differences: the object that is being moved never blocks its own destination, and the zone
+    ///     containment test is a point test so half of a cell sticking out of the buildable area is rejected.
     /// </summary>
     private static bool ComputeAvailability()
     {
@@ -386,18 +425,224 @@ internal static class MoveSession
                 continue;
             }
 
-            if (BuildGrid.IsCellBusy(cell.transform.position))
+            var position = cell.transform.position;
+
+            // Cells the object already occupied before the move are always allowed: moving a building may overlap its
+            // own former footprint (including whatever it already overlapped), otherwise some buildings could never be
+            // nudged by a single cell.
+            if (IsInsideOriginalFootprint(position))
             {
+                continue;
+            }
+
+            if (IsCellBusy(position, out var blocker))
+            {
+                ReportAvailability($"cell {Describe(position)} is blocked by '{blocker}'");
                 return false;
             }
 
-            if (!string.IsNullOrEmpty(_zoneId) && !cell.IsInsideWorldZone(_zoneId, subZone))
+            if (!IsInsideBuildZone(position, subZone))
             {
+                ReportAvailability(
+                    $"cell {Describe(position)} is outside the buildable area (zone '{_zoneId}', sub zone '{subZone}')");
                 return false;
             }
         }
 
+        ClearAvailabilityReport();
         return true;
+    }
+
+    private static bool IsInsideOriginalFootprint(Vector3 position)
+    {
+        if (_originalBounds == null)
+        {
+            return false;
+        }
+
+        var bounds = _originalBounds.Value;
+        return position.x >= bounds.min.x && position.x <= bounds.max.x &&
+               position.y >= bounds.min.y && position.y <= bounds.max.y;
+    }
+
+    /// <summary>
+    ///     Overlap test of <see cref="BuildGrid.IsCellBusy" />, except that the object being moved and everything it
+    ///     already overlapped are ignored, so its own footprint may overlap the destination.
+    /// </summary>
+    private static bool IsCellBusy(Vector3 position, out string blocker)
+    {
+        blocker = null;
+
+        var hits = Physics2D.OverlapBoxAll(position, BuildGrid.GRID_CHECK_BOX_SIZE, 0f, BusyMask);
+        foreach (var hit in hits)
+        {
+            if (hit == null || BuildGrid.SkipCollider(hit))
+            {
+                continue;
+            }
+
+            // The placement preview itself never blocks its own cells.
+            if (hit.GetComponentInParent<FloatingWorldGameObject>() != null)
+            {
+                continue;
+            }
+
+            var owner = hit.GetComponentInParent<WorldGameObject>();
+            if (owner == _target)
+            {
+                continue;
+            }
+
+            // Whatever the building already overlapped before the move keeps overlapping it.
+            if (IsInsideOriginalFootprint(hit.bounds.center))
+            {
+                continue;
+            }
+
+            blocker = owner != null
+                ? $"{owner.obj_id} at {Describe(owner.transform.position)}"
+                : $"{hit.gameObject.name} at {Describe(hit.bounds.center)}";
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Zone containment using half of the box the build grid samples with: a cell the player sees as buildable is
+    ///     usable, while a cell that only grazes the zone edge is still rejected so nothing hangs far outside the
+    ///     buildable area.
+    /// </summary>
+    private static bool IsInsideBuildZone(Vector3 position, string subZone)
+    {
+        if (string.IsNullOrEmpty(_zoneId))
+        {
+            return true;
+        }
+
+        var hits = Physics2D.OverlapBoxAll(position, BuildGrid.GRID_CHECK_BOX_SIZE * 0.5f, 0f, ZoneMask);
+        foreach (var hit in hits)
+        {
+            if (hit == null)
+            {
+                continue;
+            }
+
+            var zone = hit.GetComponent<WorldZone>();
+            if (zone != null && zone.id == _zoneId)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(subZone))
+            {
+                continue;
+            }
+
+            var sub = hit.GetComponent<WorldSubZone>();
+            if (sub != null && sub.sub_zone_id == subZone)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Zone of an object: its own zone, or - when the pivot sits outside of every zone - the zone found under its
+    ///     footprint. Objects that really are outside of all zones keep an empty id and may move freely.
+    /// </summary>
+    private static string ResolveZoneId(WorldGameObject wgo)
+    {
+        var direct = wgo.GetMyWorldZoneId();
+        if (!string.IsNullOrEmpty(direct))
+        {
+            return direct;
+        }
+
+        var footprint = ComputeFootprint(wgo);
+        var center = footprint.center;
+        var extents = footprint.extents;
+        var samples = new[]
+        {
+            center,
+            center + new Vector3(-extents.x, -extents.y),
+            center + new Vector3(extents.x, extents.y),
+            center + new Vector3(-extents.x, extents.y),
+            center + new Vector3(extents.x, -extents.y)
+        };
+
+        foreach (var sample in samples)
+        {
+            var hits = Physics2D.OverlapPointAll(sample, ZoneMask);
+            foreach (var hit in hits)
+            {
+                if (hit == null)
+                {
+                    continue;
+                }
+
+                var zone = hit.GetComponent<WorldZone>();
+                if (zone == null || string.IsNullOrEmpty(zone.id))
+                {
+                    continue;
+                }
+
+                Plugin.Log.LogInfo($"Zone of '{wgo.obj_id}' resolved from its footprint: '{zone.id}'");
+                return zone.id;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static Bounds ComputeFootprint(WorldGameObject wgo)
+    {
+        var bounds = new Bounds(wgo.transform.position, Vector3.one * (GridSize * 0.5f));
+        var hasBounds = false;
+
+        foreach (var collider in wgo.GetComponentsInChildren<Collider2D>(true))
+        {
+            if (collider == null)
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                bounds = collider.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(collider.bounds);
+            }
+        }
+
+        return bounds;
+    }
+
+    private static void ReportAvailability(string reason)
+    {
+        if (_lastAvailabilityReport == reason)
+        {
+            return;
+        }
+
+        _lastAvailabilityReport = reason;
+        Plugin.Log.LogInfo("[MOVE] Cannot place here: " + reason);
+    }
+
+    private static void ClearAvailabilityReport()
+    {
+        if (_lastAvailabilityReport.Length == 0)
+        {
+            return;
+        }
+
+        _lastAvailabilityReport = string.Empty;
+        Plugin.Log.LogInfo("[MOVE] Placement available again.");
     }
 
     private static void RefreshAvailability()
@@ -433,7 +678,13 @@ internal static class MoveSession
         var oldZone = target.GetMyWorldZone();
         var oldBounds = _originalBounds;
 
-        target.MoveWhenPlacingGlobalPos(newPos);
+        // The vanilla MoveWhenPlacingGlobalPos() rounds the position through RoundAndSortComponent, and a finished
+        // building snaps to a full 96px cell while the placement preview only snaps to a third of it. That made the
+        // object land up to half a cell away from the preview, so the final position is written as-is instead and only
+        // z/sorting are refreshed.
+        var targetPosition = target.tf.position;
+        target.tf.position = new Vector3(newPos.x, newPos.y, targetPosition.z);
+        target.round_and_sort.SetZ();
         if (variationChanged)
         {
             target.variation = newVariation;
@@ -540,7 +791,9 @@ internal static class MoveSession
 
                 if (BuildGrid.me != null && _savedBuildZone != null)
                 {
-                    BuildGrid.me.MoveBuildGridTo(_savedBuildZone.center_tf.position);
+                    // Move first, then refresh: RefreshGrid() samples the world around the grid's current position, so
+                    // moving the grid without refreshing would leave the coloured cells offset from the terrain.
+                    BuildGridView.ShowAt(_savedBuildZone.center_tf.position);
                 }
             }
             else
@@ -588,7 +841,7 @@ internal static class MoveSession
 
         if (BuildGrid.me != null)
         {
-            BuildGrid.ShowBuildGrid(false, true);
+            BuildGridView.Hide();
             BuildGrid.me.ClearPreviousTotemRadius(true);
         }
 

@@ -17,6 +17,14 @@ public class GJTimer : global::UnityEngine.MonoBehaviour
 
 }
 
+public class UI2DSprite : global::UIBasicSprite
+{
+}
+
+public class UIBasicSprite : global::UIWidget
+{
+}
+
 public class UICamera : global::UnityEngine.MonoBehaviour
 {
     public static global::UnityEngine.GameObject hoveredObject { get; }

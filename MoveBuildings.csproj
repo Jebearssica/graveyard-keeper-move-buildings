@@ -19,7 +19,7 @@
 
     <BepInExPluginGuid>gk.movebuildings</BepInExPluginGuid>
     <BepInExPluginName>Move Buildings</BepInExPluginName>
-    <BepInExPluginVersion>1.1.0</BepInExPluginVersion>
+    <BepInExPluginVersion>1.1.1</BepInExPluginVersion>
   </PropertyGroup>
 
   <!--
@@ -90,15 +90,37 @@
       <HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Texture2D.LoadImage (ImageConversion) is used to decode the bundled row icon. -->
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(ManagedDir)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(UseGameRefs)' == 'true'">
-    <Publicize Include="Assembly-CSharp" />
+    <Publicize Include="Assembly-CSharp" PublicizeTarget="All" />
   </ItemGroup>
 
   <!-- ci\ holds tooling and generated stubs, not plugin source. -->
   <ItemGroup>
     <Compile Remove="ci\**\*.cs" />
+    <!--
+      The stub projects keep their build output in ci\refs\*\bin|obj. Those DLLs must never be picked up by the
+      compiler: RAR prefers "candidate assembly files" over Reference HintPaths, so a leftover stub assembly named
+      Assembly-CSharp.dll would silently replace the real one.
+    -->
+    <None Remove="ci\**" />
+    <Content Remove="ci\**" />
+    <EmbeddedResource Remove="ci\**" />
+  </ItemGroup>
+
+  <!-- Recording helper for the README GIF; never part of a release build. -->
+  <PropertyGroup Condition="'$(Demo)' == 'true'">
+    <DefineConstants>$(DefineConstants);DEMO</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Demo)' != 'true'">
+    <Compile Remove="Demo.cs" />
   </ItemGroup>
 
   <!-- Without the game: stubs for the game assemblies, Unity modules from NuGet. -->
@@ -114,9 +136,20 @@
     <Compile Include="ci\IgnoresAccessChecksTo.cs" Link="Shared\IgnoresAccessChecksTo.cs" />
   </ItemGroup>
 
+  <!-- Language of the extra row is resolved at runtime; the icon is a self-made 32x32 PNG in the vanilla palette. -->
+  <ItemGroup>
+    <EmbeddedResource Include="icon\move_building.png" LogicalName="MoveBuildings.icon.move_building.png" />
+    <None Remove="icon\**" />
+  </ItemGroup>
+
   <Target Name="DeployToPlugins" AfterTargets="Build" Condition="'$(DeployToGame)' == 'true'">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)\BepInEx\plugins\MoveBuildings" />
   </Target>
 
 </Project>
+
+
+
+
+
 
