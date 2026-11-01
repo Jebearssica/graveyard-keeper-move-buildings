@@ -105,14 +105,20 @@ internal static class Emitter
         foreach (var propertyUsage in usage.Properties.Values.OrderBy(p => p.Property.Name, StringComparer.Ordinal))
         {
             var property = propertyUsage.Property;
-            var accessors = (propertyUsage.Get ? "get; " : string.Empty) + (propertyUsage.Set ? "set; " : string.Empty);
-            if (accessors.Length == 0)
+            if (!propertyUsage.Get && !propertyUsage.Set)
             {
                 continue;
             }
 
+            // Write-only properties need an explicit accessor body: an auto property has to have a getter.
+            var accessors = propertyUsage.Get && propertyUsage.Set
+                ? "{ get { return default; } set { } }"
+                : propertyUsage.Get
+                    ? "{ get { return default; } }"
+                    : "{ set { } }";
+
             var staticText = (property.GetMethod ?? property.SetMethod)?.IsStatic == true ? "static " : string.Empty;
-            writer.WriteLine($"{pad}    public {staticText}{TypeName(property.PropertyType)} {property.Name} {{ {accessors}}}");
+            writer.WriteLine($"{pad}    public {staticText}{TypeName(property.PropertyType)} {property.Name} {accessors}");
         }
 
         foreach (var method in usage.Methods.Values.OrderBy(m => m.Name, StringComparer.Ordinal)

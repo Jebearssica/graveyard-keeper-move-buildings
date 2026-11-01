@@ -19,13 +19,29 @@ internal static class BuildMoveMode
 
     internal static bool Active => _picking;
 
-    /// <summary>Adds the "move building" entry to the craft list, right after the vanilla "remove" entry.</summary>
+    /// <summary>Adds the "move building" entry to the craft list, right before the vanilla "remove" entry.</summary>
     internal static void AddCraftListEntry(CraftGUI craftGui)
+    {
+        // Never let a failure here escape: the caller still has to lay the vanilla rows out afterwards, and an exception
+        // leaving this postfix would leave every row stacked at the origin.
+        try
+        {
+            AddCraftListEntryUnsafe(craftGui);
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError("Could not add the move entry: " + e);
+        }
+    }
+
+    private static void AddCraftListEntryUnsafe(CraftGUI craftGui)
     {
         if (craftGui == null || craftGui.craft_item_prefab == null)
         {
             return;
         }
+
+        RemoveStaleEntries(craftGui);
 
         var craft = new ObjectCraftDefinition
         {
@@ -45,18 +61,47 @@ internal static class BuildMoveMode
             item.item_gui.x1.icon.DrawAndResize(icon);
         }
 
-        // Keep the row next to the vanilla "remove" row and above the fold: the previous layout put it last, where
-        // short craft lists clip it out of the scroll view.
-        var index = Math.Max(0, craftGui.list_items.Count - 1);
-        craftGui.list_items.Insert(index, item);
+        // Sit directly in front of the "remove" row: appended last it would be scrolled out of view in short lists.
+        // Both the list index and the transform index are taken from the remove row, because the hierarchy also holds
+        // the inactive prefab and possibly rows that are being destroyed.
+        var removeIndex = craftGui.list_items.FindIndex(i =>
+            i != null && i.craft_definition != null && i.craft_definition.id == "_remove_");
+
+        var listIndex = removeIndex >= 0 ? removeIndex : craftGui.list_items.Count;
+        craftGui.list_items.Insert(listIndex, item);
         item.SetActive(true);
 
-        // The visual order comes from the transform hierarchy, not from list_items.
-        item.transform.SetSiblingIndex(index);
+        var removeRow = removeIndex >= 0 ? craftGui.list_items[removeIndex + 1] : null;
+        if (removeRow != null)
+        {
+            item.transform.SetSiblingIndex(removeRow.transform.GetSiblingIndex());
+        }
 
         if (craftGui.craft_list_grid != null)
         {
             craftGui.craft_list_grid.Reposition();
+            craftGui.craft_list_grid.repositionNow = true;
+        }
+    }
+
+    /// <summary>Rows survive a GUI that was closed on the same frame (Unity destroys them a frame later), so drop them.</summary>
+    private static void RemoveStaleEntries(CraftGUI craftGui)
+    {
+        for (var i = craftGui.list_items.Count - 1; i >= 0; i--)
+        {
+            var existing = craftGui.list_items[i];
+            if (existing == null || existing.craft_definition == null ||
+                existing.craft_definition.id != MoveCraftId)
+            {
+                continue;
+            }
+
+            craftGui.list_items.RemoveAt(i);
+            if (existing.gameObject != null)
+            {
+                existing.gameObject.SetActive(false);
+                UnityEngine.Object.Destroy(existing.gameObject);
+            }
         }
     }
 
@@ -190,7 +235,19 @@ internal static class BuildMoveMode
 
         if (reopenBuildGui && BuildModeLogics.last_build_desk != null)
         {
-            me.OpenBuildObjectGUI(BuildModeLogics.last_build_desk);
+            // Reopen one frame later: closing the window queues the old rows for destruction, and cloning new rows in
+            // the same frame leaves the table laying out both sets, which ends up stacking every row on one line.
+            var desk = BuildModeLogics.last_build_desk;
+            GJTimer.AddTimer(0.02f, delegate
+            {
+                if (MainGame.me != null && MainGame.game_started && !BaseGUI.all_guis_closed)
+                {
+                    return;
+                }
+
+                MainGame.me.OpenBuildObjectGUI(desk);
+            });
+
             return;
         }
 
@@ -204,6 +261,18 @@ internal static class BuildMoveMode
 
     /// <summary>Keeps the extra row visible on every craft tab, mirroring how the vanilla "remove" row behaves.</summary>
     internal static void KeepCraftListEntryVisible(CraftGUI craftGui)
+    {
+        try
+        {
+            KeepVisibleUnsafe(craftGui);
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogWarning("Could not keep the move entry visible: " + e.Message);
+        }
+    }
+
+    private static void KeepVisibleUnsafe(CraftGUI craftGui)
     {
         if (craftGui == null)
         {

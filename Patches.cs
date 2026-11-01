@@ -45,5 +45,14 @@ internal static class Patches
     private static void CraftGUI_SwitchTab_Postfix(CraftGUI __instance)
     {
         BuildMoveMode.KeepCraftListEntryVisible(__instance);
+        CraftLayout.ScheduleRepair(__instance);
+    }
+
+    /// <summary>Re-runs the list layout once after the window has settled, so rows never stay stacked on one line.</summary>
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(CraftGUI), "ProceedOpen")]
+    private static void CraftGUI_ProceedOpen_Postfix(CraftGUI __instance)
+    {
+        CraftLayout.ScheduleRepair(__instance);
     }
 }

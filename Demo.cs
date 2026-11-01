@@ -70,7 +70,40 @@ internal static class Demo
                         return;
                     }
 
+                    if (Mode == "dump")
+                    {
+                        DumpDesks();
+                        return;
+                    }
+
                     PickTargets();
+                    return;
+
+                case 50:
+                    if (_phaseTime < _phaseDelay)
+                    {
+                        return;
+                    }
+
+                    DumpLayout(GUIElements.me.craft, _dumpDesk);
+                    Next(51, 0.1f);
+                    return;
+
+                case 51:
+                    if (_phaseTime < _phaseDelay)
+                    {
+                        return;
+                    }
+
+                    _dumpIndex++;
+                    if (_dumpIndex >= _dumpQueue.Count)
+                    {
+                        Plugin.Log.LogInfo("[DIAG] dump finished");
+                        _phase = 99;
+                        return;
+                    }
+
+                    OpenDesk(_dumpQueue[_dumpIndex]);
                     return;
 
                 case 2:
@@ -177,6 +210,7 @@ internal static class Demo
                         return;
                     }
 
+                    DumpLayout(GUIElements.me.craft, BuildModeLogics.last_build_desk);
                     Finish();
                     return;
             }
@@ -185,6 +219,100 @@ internal static class Demo
         {
             Plugin.Log.LogError("[DEMO] " + e);
             _phase = 99;
+        }
+    }
+
+    private static readonly string Mode = Environment.GetEnvironmentVariable("GK_DEMO_MODE") ?? "play";
+    private static readonly List<WorldGameObject> _dumpQueue = new List<WorldGameObject>();
+    private static int _dumpIndex;
+    private static WorldGameObject _dumpDesk;
+
+    private static void DumpDesks()
+    {
+        var desks = WorldMap.objs
+            .Where(o => o != null && o.obj_def != null &&
+                        o.obj_def.interaction_type == ObjectDefinition.InteractionType.Builder)
+            .ToList();
+
+        Plugin.Log.LogInfo("[DIAG] build desks: " + desks.Count);
+        foreach (var desk in desks)
+        {
+            Plugin.Log.LogInfo("[DIAG]   desk='" + desk.obj_id + "' zone='" + desk.obj_def.zone_id +
+                               "' pos=" + desk.transform.position);
+        }
+
+        var farm = desks.FirstOrDefault(d => d.obj_id.IndexOf("garden", StringComparison.OrdinalIgnoreCase) >= 0);
+        var home = desks.FirstOrDefault(d => d.obj_id.IndexOf("mf_", StringComparison.OrdinalIgnoreCase) >= 0);
+        var tavern = desks.FirstOrDefault(d => d.obj_id.IndexOf("players_tavern", StringComparison.OrdinalIgnoreCase) >= 0);
+
+        _dumpQueue.Clear();
+        if (home != null) _dumpQueue.Add(home);
+        if (farm != null && farm != home) _dumpQueue.Add(farm);
+        if (tavern != null && !_dumpQueue.Contains(tavern)) _dumpQueue.Add(tavern);
+        if (_dumpQueue.Count == 0)
+        {
+            Plugin.Log.LogWarning("[DIAG] no desk to dump");
+            _phase = 99;
+            return;
+        }
+
+        _dumpIndex = 0;
+        OpenDesk(_dumpQueue[0]);
+    }
+
+    private static void OpenDesk(WorldGameObject desk)
+    {
+        _dumpDesk = desk;
+        Plugin.Log.LogInfo("[DIAG] opening desk '" + desk.obj_id + "'");
+        TryStep("hide previous", delegate { GUIElements.me.craft.Hide(); });
+        MainGame.me.OpenBuildObjectGUI(desk);
+        Next(50, 1.6f);
+    }
+
+    private static void DumpLayout(CraftGUI gui, WorldGameObject desk)
+    {
+        if (gui == null)
+        {
+            Plugin.Log.LogWarning("[DIAG] craft gui is null");
+            return;
+        }
+
+        var grid = gui.craft_list_grid;
+        Plugin.Log.LogInfo("[DIAG] desk='" + (desk != null ? desk.obj_id : "?") + "' items=" + gui.list_items.Count +
+                           " children=" + (grid != null ? grid.transform.childCount : -1) +
+                           " columns=" + (grid != null ? grid.columns : -1) +
+                           " padding=" + (grid != null ? grid.padding.ToString() : "?") +
+                           " direction=" + (grid != null ? grid.direction.ToString() : "?"));
+
+        for (var i = 0; i < gui.list_items.Count; i++)
+        {
+            var it = gui.list_items[i];
+            if (it == null)
+            {
+                Plugin.Log.LogInfo("[DIAG]   [" + i + "] <null>");
+                continue;
+            }
+
+            var id = it.craft_definition != null ? it.craft_definition.id : "?";
+            var w = it.GetComponent<UIWidget>();
+            Plugin.Log.LogInfo("[DIAG]   [" + i + "] id='" + id + "' active=" + it.gameObject.activeSelf +
+                               " sibling=" + it.transform.GetSiblingIndex() +
+                               " pos=" + it.transform.localPosition +
+                               " size=" + (w != null ? w.width + "x" + w.height : "?"));
+        }
+
+        if (grid != null)
+        {
+            for (var c = 0; c < grid.transform.childCount; c++)
+            {
+                var child = grid.transform.GetChild(c);
+                var item = child.GetComponent<CraftItemGUI>();
+                var widget = child.GetComponent<UIWidget>();
+                Plugin.Log.LogInfo("[DIAG]   child[" + c + "] '" + child.name + "' item=" + (item != null) +
+                                   " active=" + child.gameObject.activeSelf +
+                                   " pos=" + child.localPosition +
+                                   " size=" + (widget != null ? widget.width + "x" + widget.height : "?"));
+            }
         }
     }
 
@@ -442,4 +570,8 @@ internal static class Demo
     }
 }
 #endif
+
+
+
+
 

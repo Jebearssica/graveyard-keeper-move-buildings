@@ -12,15 +12,16 @@ public class BalanceBaseObject
 
 public class BaseCraftGUI : global::BaseGUI
 {
+    public global::WorldGameObject craftery_wgo;
     public global::System.Boolean OnCraft(global::CraftDefinition craft, global::Item try_use_particular_item = default, global::System.Collections.Generic.List<global::System.String> multiquality_ids = default, global::System.Int32 amount = default, global::System.Collections.Generic.List<global::Item> override_needs = default, global::WorldGameObject other_obj_override = default) { return default; }
 }
 
 public class BaseGUI : global::UnityEngine.MonoBehaviour
 {
     public static global::System.Collections.Generic.List<global::BaseGUI> opened_windows;
-    public static global::System.Boolean all_guis_closed { get; }
-    public global::ButtonTipsStr button_tips { get; }
-    public global::System.Boolean is_shown { get; }
+    public static global::System.Boolean all_guis_closed { get { return default; } }
+    public global::ButtonTipsStr button_tips { get { return default; } }
+    public global::System.Boolean is_shown { get { return default; } }
     public void Hide(global::System.Boolean play_hide_sound = true) { }
     public void Open() { }
 }
@@ -38,7 +39,7 @@ public class BaseItemCellGUI : global::UnityEngine.MonoBehaviour
 public class BuildGrid : global::UnityEngine.MonoBehaviour
 {
     public static global::UnityEngine.Vector2 GRID_CHECK_BOX_SIZE;
-    public static global::BuildGrid me { get; }
+    public static global::BuildGrid me { get { return default; } }
     public void ClearPreviousTotemRadius(global::System.Boolean apply_colors) { }
     public static global::System.String GetCurrentSubZoneID() { return default; }
     public void MoveBuildGridTo(global::UnityEngine.Vector2 pos) { }
@@ -57,8 +58,8 @@ public class BuildModeLogics
     public global::System.String _cur_build_zone_id;
     public global::MultiInventory _multi_inventory;
     public static global::WorldGameObject last_build_desk;
-    public global::WorldZone cur_build_zone { get; }
-    public global::System.String cur_build_zone_id { get; }
+    public global::WorldZone cur_build_zone { get { return default; } }
+    public global::System.String cur_build_zone_id { get { return default; } }
     public void SetCurrentBuildZone(global::System.String zone_id, global::System.String custom_sub_zone = "") { }
 }
 
@@ -79,13 +80,14 @@ public class ChunkedGameObject : global::UnityEngine.MonoBehaviour
 
 public class ComponentsManager
 {
-    public global::InteractionComponent interaction { get; }
+    public global::InteractionComponent interaction { get { return default; } }
 }
 
 public class CraftDefinition : global::BalanceBaseObject
 {
     public global::System.String custom_name;
     public global::System.String icon;
+    public global::System.String tab_id;
 }
 
 public class CraftGUI : global::BaseCraftGUI
@@ -121,7 +123,7 @@ public class FloatingWorldGameObject : global::UnityEngine.MonoBehaviour
 {
     public static global::System.Collections.Generic.List<global::FlowGridCell> _cells;
     public static global::System.Boolean can_be_built;
-    public global::WorldGameObject wobj { get; }
+    public global::WorldGameObject wobj { get { return default; } }
     public static global::FloatingWorldGameObject CreateFloatingWorldObjectById(global::System.String obj_id) { return default; }
     public static global::System.Boolean IsFloating() { return default; }
     public static global::System.Boolean IsObjectRotatable() { return default; }
@@ -134,7 +136,7 @@ public class FloatingWorldGameObject : global::UnityEngine.MonoBehaviour
 
 public class FlowGridCell : global::UnityEngine.MonoBehaviour
 {
-    public global::FlowGridCell.CellType cell_type { get; }
+    public global::FlowGridCell.CellType cell_type { get { return default; } }
     public enum CellType
     {
         None = 0,
@@ -149,13 +151,13 @@ public class GUIElements : global::UnityEngine.MonoBehaviour
     public global::BuildModeGUI build_mode_gui;
     public global::CraftGUI craft;
     public global::HUD hud;
-    public static global::GUIElements me { get; }
+    public static global::GUIElements me { get { return default; } }
 }
 
 public class GameBalance : global::GameBalanceBase
 {
     public global::System.Collections.Generic.List<global::ObjectCraftDefinition> craft_obj_data;
-    public static global::GameBalance me { get; }
+    public static global::GameBalance me { get { return default; } }
 }
 
 public class GameBalanceBase : global::UnityEngine.ScriptableObject
@@ -218,7 +220,7 @@ public class GameSettings
 {
     public static global::System.String _cur_lng;
     public global::System.String language;
-    public static global::GameSettings me { get; }
+    public static global::GameSettings me { get { return default; } }
 }
 
 public class HUD : global::UnityEngine.MonoBehaviour
@@ -238,7 +240,7 @@ public class Item
 
 public class LazyInput : global::UnityEngine.MonoBehaviour
 {
-    public static global::System.Boolean gamepad_active { get; }
+    public static global::System.Boolean gamepad_active { get { return default; } }
     public static void ClearKeyDown(global::GameKey key) { }
     public static global::System.Boolean GetKeyDown(global::GameKey key) { return default; }
 }
@@ -332,16 +334,17 @@ public class WorldGameObject : global::CustomNetworkBehaviour
 {
     public global::System.Boolean is_dead;
     public global::System.Boolean is_removed;
+    public global::System.String last_opened_tab;
     public global::ObjectDefinition obj_def;
     public global::System.String obj_id;
     public global::UnityEngine.Transform tf;
     public global::System.Int64 unique_id;
     public global::System.Int32 variation;
     public global::System.Int32 variation_2;
-    public global::ComponentsManager components { get; }
-    public global::Item data { get; }
-    public global::System.Boolean is_player { get; }
-    public global::RoundAndSortComponent round_and_sort { get; }
+    public global::ComponentsManager components { get { return default; } }
+    public global::Item data { get { return default; } }
+    public global::System.Boolean is_player { get { return default; } }
+    public global::RoundAndSortComponent round_and_sort { get { return default; } }
     public void ForceInitOptimizedColliders() { }
     public global::WorldZone GetMyWorldZone() { return default; }
     public global::System.String GetMyWorldZoneId() { return default; }
@@ -365,7 +368,7 @@ public class WorldGameObjectComponentBase
 
 public static class WorldMap
 {
-    public static global::System.Collections.Generic.List<global::WorldGameObject> objs { get; }
+    public static global::System.Collections.Generic.List<global::WorldGameObject> objs { get { return default; } }
 }
 
 public class WorldSubZone : global::UnityEngine.MonoBehaviour
@@ -376,7 +379,7 @@ public class WorldSubZone : global::UnityEngine.MonoBehaviour
 public class WorldZone : global::UnityEngine.MonoBehaviour
 {
     public global::System.String id;
-    public global::UnityEngine.Transform center_tf { get; }
+    public global::UnityEngine.Transform center_tf { get { return default; } }
     public static global::WorldZone GetZoneByID(global::System.String id, global::System.Boolean null_is_error = true) { return default; }
     public void Recalculate() { }
 }

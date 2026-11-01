@@ -27,12 +27,12 @@ public class UIBasicSprite : global::UIWidget
 
 public class UICamera : global::UnityEngine.MonoBehaviour
 {
-    public static global::UnityEngine.GameObject hoveredObject { get; }
+    public static global::UnityEngine.GameObject hoveredObject { get { return default; } }
 }
 
 public class UILabel : global::UIWidget
 {
-    public global::System.String text { get; }
+    public global::System.String text { get { return default; } }
 }
 
 public class UIRect : global::UnityEngine.MonoBehaviour
@@ -41,6 +41,7 @@ public class UIRect : global::UnityEngine.MonoBehaviour
 
 public class UITable : global::UIWidgetContainer
 {
+    public global::System.Boolean repositionNow { set { } }
     public void Reposition() { }
 }
 

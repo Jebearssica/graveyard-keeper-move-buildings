@@ -9,14 +9,21 @@ internal static class Labels
     {
         get
         {
-            var language = GameSettings._cur_lng;
-            if (string.IsNullOrEmpty(language) && GameSettings.me != null)
+            try
             {
-                language = GameSettings.me.language;
-            }
+                var language = GameSettings._cur_lng;
+                if (string.IsNullOrEmpty(language) && GameSettings.me != null)
+                {
+                    language = GameSettings.me.language;
+                }
 
-            return !string.IsNullOrEmpty(language) &&
-                   language.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
+                return !string.IsNullOrEmpty(language) &&
+                       language.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 

@@ -1,5 +1,17 @@
 ﻿# Changelog
 
+## [1.1.2] - 2026-11-01
+
+- Fixed the *Move building* row landing in the wrong slot: it is now anchored on the vanilla *Remove* row for both the
+  list order and the hierarchy order, so it always sits directly above *Remove* and stays visible.
+- Leftover rows from a window that was closed on the same frame are cleaned up instead of piling up.
+- The build window is reopened one frame after leaving the move mode, so the table never lays out a half-destroyed list.
+- The craft list is laid out once more right after the window opens when every visible row ended up stacked at the
+  origin, which is what made all buildings show up in a single line (seen at the garden desk).
+- A failure while adding the row can no longer escape into the vanilla open routine and leave the whole list unlaid.
+- Added defensive guards around the language lookup used for the row label.
+
+
 ## [1.1.1] - 2026-11-01
 
 - The *Move building* row is now inserted in front of the vanilla *Remove* row instead of being appended after it,
@@ -29,4 +41,5 @@
 - `AllowNonBuildableObjects` (default `false`), `ShowBuildGrid` (default `true`) and a `SelfTest` switch for
   verification runs.
 - Release builds carry no debug symbols and no local paths.
+
 
