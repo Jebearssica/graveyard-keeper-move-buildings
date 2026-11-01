@@ -1,4 +1,4 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 
 namespace MoveBuildings;
 
@@ -10,6 +10,7 @@ internal static class Patches
     {
         MoveSession.Tick();
         BuildMoveMode.Tick();
+        BuildMoveMode.TickSafetyNet();
         SelfTest.Tick();
 #if DEMO
         Demo.Tick();
@@ -56,3 +57,4 @@ internal static class Patches
         CraftLayout.ScheduleRepair(__instance);
     }
 }
+

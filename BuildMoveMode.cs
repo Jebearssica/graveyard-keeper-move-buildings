@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -16,17 +16,111 @@ internal static class BuildMoveMode
     private const string MoveIconName = "i_hand_one";
 
     private static bool _picking;
+    private static float _lastSafetyCheck;
 
     internal static bool Active => _picking;
+
+    /// <summary>
+    ///     Makes sure the build window of a builder desk has exactly one move entry.
+    ///     Runs from the vanilla "add remove row" postfix, from the window-open postfix and from a slow safety net in the
+    ///     main loop, because other mods can rebuild or re-filter the craft list after this mod added its row.
+    /// </summary>
+    internal static void EnsureCraftListEntry(CraftGUI craftGui)
+    {
+        try
+        {
+            if (craftGui == null || !craftGui.is_shown || craftGui.craft_item_prefab == null)
+            {
+                return;
+            }
+
+            var desk = craftGui.craftery_wgo;
+            if (desk == null || desk.obj_def == null ||
+                desk.obj_def.interaction_type != ObjectDefinition.InteractionType.Builder)
+            {
+                return;
+            }
+
+            var existing = FindMoveRow(craftGui);
+            if (existing != null)
+            {
+                if (!existing.gameObject.activeSelf)
+                {
+                    existing.SetActive(true);
+                    Reposition(craftGui);
+                }
+
+                return;
+            }
+
+            AddCraftListEntryUnsafe(craftGui);
+            Plugin.Log.LogInfo("Added the move row to '" + desk.obj_id + "'");
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError("Could not add the move entry: " + e);
+        }
+    }
+
+    /// <summary>Slow fallback for windows that another mod rebuilt without the move row.</summary>
+    internal static void TickSafetyNet()
+    {
+        var me = MainGame.me;
+        if (me == null || !MainGame.game_started || me.gui_elements == null)
+        {
+            return;
+        }
+
+        var craftGui = me.gui_elements.craft;
+        if (craftGui == null || !craftGui.is_shown)
+        {
+            return;
+        }
+
+        if (Time.unscaledTime - _lastSafetyCheck < 0.5f)
+        {
+            return;
+        }
+
+        _lastSafetyCheck = Time.unscaledTime;
+        EnsureCraftListEntry(craftGui);
+    }
+
+    private static CraftItemGUI FindMoveRow(CraftGUI craftGui)
+    {
+        if (craftGui.list_items == null)
+        {
+            return null;
+        }
+
+        foreach (var item in craftGui.list_items)
+        {
+            if (item != null && item.craft_definition != null && item.craft_definition.id == MoveCraftId)
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
+    private static void Reposition(CraftGUI craftGui)
+    {
+        if (craftGui.craft_list_grid == null)
+        {
+            return;
+        }
+
+        craftGui.craft_list_grid.Reposition();
+        craftGui.craft_list_grid.repositionNow = true;
+    }
 
     /// <summary>Adds the "move building" entry to the craft list, right before the vanilla "remove" entry.</summary>
     internal static void AddCraftListEntry(CraftGUI craftGui)
     {
-        // Never let a failure here escape: the caller still has to lay the vanilla rows out afterwards, and an exception
-        // leaving this postfix would leave every row stacked at the origin.
         try
         {
-            AddCraftListEntryUnsafe(craftGui);
+            EnsureCraftListEntry(craftGui);
         }
         catch (Exception e)
         {
@@ -36,11 +130,6 @@ internal static class BuildMoveMode
 
     private static void AddCraftListEntryUnsafe(CraftGUI craftGui)
     {
-        if (craftGui == null || craftGui.craft_item_prefab == null)
-        {
-            return;
-        }
-
         RemoveStaleEntries(craftGui);
 
         var craft = new ObjectCraftDefinition
@@ -65,7 +154,7 @@ internal static class BuildMoveMode
         // Both the list index and the transform index are taken from the remove row, because the hierarchy also holds
         // the inactive prefab and possibly rows that are being destroyed.
         var removeIndex = craftGui.list_items.FindIndex(i =>
-            i != null && i.craft_definition != null && i.craft_definition.id == "_remove_");
+            i != null && i.craft_definition != null && i.craft_definition.id == CraftLayout.RemoveCraftId);
 
         var listIndex = removeIndex >= 0 ? removeIndex : craftGui.list_items.Count;
         craftGui.list_items.Insert(listIndex, item);
@@ -77,11 +166,7 @@ internal static class BuildMoveMode
             item.transform.SetSiblingIndex(removeRow.transform.GetSiblingIndex());
         }
 
-        if (craftGui.craft_list_grid != null)
-        {
-            craftGui.craft_list_grid.Reposition();
-            craftGui.craft_list_grid.repositionNow = true;
-        }
+        Reposition(craftGui);
     }
 
     /// <summary>Rows survive a GUI that was closed on the same frame (Unity destroys them a frame later), so drop them.</summary>
@@ -317,3 +402,4 @@ internal static class BuildMoveMode
         buildGui.button_tips.Print(tips);
     }
 }
+

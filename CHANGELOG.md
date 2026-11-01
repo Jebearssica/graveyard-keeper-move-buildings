@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## [1.1.4] - 2026-11-01
+
+- The move row is now added from three places: the vanilla "add remove row" hook, the window-open hook and a slow
+  safety net in the main loop that re-adds (or re-shows) it every half second while a builder window is open. Other
+  mods that rebuild or re-filter the craft list can no longer make the row disappear.
+- The row is also logged once per window ("Added the move row to '<desk>'"), so a missing row can be told apart from
+  a mod that never opens the vanilla build window.
+
+
 ## [1.1.3] - 2026-11-01
 
 - Graves can be moved now. They have no build craft of their own (the body is stored in the object), so they are
