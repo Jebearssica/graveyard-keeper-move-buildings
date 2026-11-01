@@ -12,7 +12,6 @@ public class BalanceBaseObject
 
 public class BaseCraftGUI : global::BaseGUI
 {
-    public global::WorldGameObject craftery_wgo;
     public global::System.Boolean OnCraft(global::CraftDefinition craft, global::Item try_use_particular_item = default, global::System.Collections.Generic.List<global::System.String> multiquality_ids = default, global::System.Int32 amount = default, global::System.Collections.Generic.List<global::Item> override_needs = default, global::WorldGameObject other_obj_override = default) { return default; }
 }
 
@@ -54,12 +53,10 @@ public class BuildModeGUI : global::BaseGUI
 
 public class BuildModeLogics
 {
-    public global::WorldZone _cur_build_zone;
-    public global::System.String _cur_build_zone_id;
-    public global::MultiInventory _multi_inventory;
     public static global::WorldGameObject last_build_desk;
     public global::WorldZone cur_build_zone { get { return default; } }
     public global::System.String cur_build_zone_id { get { return default; } }
+    public global::MultiInventory multi_inventory { get { return default; } }
     public void SetCurrentBuildZone(global::System.String zone_id, global::System.String custom_sub_zone = "") { }
 }
 
@@ -121,7 +118,6 @@ public static class ExtentionTools
 
 public class FloatingWorldGameObject : global::UnityEngine.MonoBehaviour
 {
-    public static global::System.Collections.Generic.List<global::FlowGridCell> _cells;
     public static global::System.Boolean can_be_built;
     public global::WorldGameObject wobj { get { return default; } }
     public static global::FloatingWorldGameObject CreateFloatingWorldObjectById(global::System.String obj_id) { return default; }
@@ -218,7 +214,6 @@ public class GameKeyTip
 
 public class GameSettings
 {
-    public static global::System.String _cur_lng;
     public global::System.String language;
     public static global::GameSettings me { get { return default; } }
 }
@@ -352,7 +347,6 @@ public class WorldGameObject : global::CustomNetworkBehaviour
     public void RecalculateZoneBelonging() { }
     public void Redraw(global::System.Boolean force_redraw = false, global::System.Boolean force_redraw_part = false, global::System.Boolean draw_puff = false) { }
     public void RedrawBubble(global::System.Nullable<global::System.Boolean> show_interaction_buttons = default) { }
-    public void RedrawVariation() { }
     public void RefreshPositionCache() { }
     public void UpdatePathCell() { }
 }

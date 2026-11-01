@@ -34,7 +34,7 @@ internal static class BuildMoveMode
                 return;
             }
 
-            var desk = craftGui.craftery_wgo;
+            var desk = GameAccess.GetCraftery(craftGui);
             if (desk == null || desk.obj_def == null ||
                 desk.obj_def.interaction_type != ObjectDefinition.InteractionType.Builder)
             {

@@ -5,8 +5,13 @@ with Graveyard Keeper, so building it normally requires the game. CI has no game
 declaration-only stand-ins for the two game assemblies.
 
 They are generated, not written by hand, and they contain **no game code** - only the type and member signatures the
-plugin actually references (roughly 50 types / 120 members). Every generated member is `public`, which is what the
-local build gets from the publicizer; nothing is compiled into the plugin from these files.
+plugin actually references (roughly 50 types / 120 members). Every generated member keeps the accessibility it has in
+the real assembly, and nothing is compiled into the plugin from these files.
+
+Keeping the real accessibility is what makes the stub build a guard: a direct read of a `protected`/`private` game
+member compiles against a loosened reference but throws `FieldAccessException` / `MethodAccessException` on a runtime
+that enforces visibility. Because the stub (and the local build, which no longer publicizes the game assemblies) uses
+the real modifiers, such an access fails to compile instead. Non-public members go through `GameAccess.cs`.
 
 ## Layout
 
@@ -15,7 +20,6 @@ local build gets from the publicizer; nothing is compiled into the plugin from t
 | `refs/Assembly-CSharp/*.Stub.cs`, `refs/Assembly-CSharp-firstpass/*.Stub.cs` | Generated stub sources (committed) |
 | `refs/*/AssemblyInfo.cs` | Generated `AssemblyVersion`, matching the shipped assemblies so the plugin's `AssemblyRef` is unchanged |
 | `refs/*/*.csproj` | Stub projects, referenced by `MoveBuildings.csproj` when `UseGameRefs=false` |
-| `IgnoresAccessChecksTo.cs` | Access exemption for the non-public game members, compiled only into stub builds |
 | `stubgen/` | The generator (Mono.Cecil, net8.0); not part of the plugin |
 
 ## Regenerating
@@ -38,6 +42,10 @@ otherwise, so CI catches a stale stub immediately.
 Members that are only referenced through `nameof(...)` never appear in the IL and have to be listed in
 `StubModel.ExtraMembers` (currently `MainGame.Update`, used by a Harmony attribute).
 
+Optional parameters are a caveat: the game assemblies do not store every default value in metadata, so a stub may
+declare `= default` where the real default is something else (`CraftGUI.OnCraft`'s `amount` is the known case, its
+real default is `1`). Pass such arguments explicitly instead of relying on the default.
+
 ## Building like CI does
 
 ```powershell
@@ -50,5 +58,5 @@ exists. `DeployToGame` is `true` when `<game>\BepInEx\plugins` exists, and then 
 ## Stub builds are equivalent
 
 Both build modes were compiled and their IL compared member by member (types, fields, properties, methods, method
-bodies, references): identical except for the `IgnoresAccessChecksToAttribute` type itself, which in the real-game
-build is injected by the publicizer instead of being compiled from `IgnoresAccessChecksTo.cs`.
+bodies, references): identical. Nothing in the plugin is conditional on the build flavour any more, so the assembly
+that CI releases is the one that is compiled and tested locally.

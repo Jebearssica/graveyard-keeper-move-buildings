@@ -15,11 +15,10 @@
     <Deterministic>true</Deterministic>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <GenerateDependencyFile>false</GenerateDependencyFile>
-    <NoWarn>$(NoWarn);Publicizer001</NoWarn>
 
     <BepInExPluginGuid>gk.movebuildings</BepInExPluginGuid>
     <BepInExPluginName>Move Buildings</BepInExPluginName>
-    <BepInExPluginVersion>1.1.5</BepInExPluginVersion>
+    <BepInExPluginVersion>1.1.6</BepInExPluginVersion>
   </PropertyGroup>
 
   <!--
@@ -63,9 +62,8 @@
     </Reference>
   </ItemGroup>
 
-  <!-- Against the real game, with the game assemblies publicized at build time only. -->
+  <!-- Against the real game install. -->
   <ItemGroup Condition="'$(UseGameRefs)' == 'true'">
-    <PackageReference Include="Krafs.Publicizer" Version="2.3.2" PrivateAssets="all" />
     <Reference Include="Assembly-CSharp">
       <HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
@@ -97,10 +95,11 @@
     </Reference>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(UseGameRefs)' == 'true'">
-    <Publicize Include="Assembly-CSharp" PublicizeTarget="All" />
-  </ItemGroup>
-
+  <!--
+    Nothing is publicized: the plugin only links against members that are public in the shipped game assembly and
+    reaches everything else through reflection (see GameAccess.cs). Keeping the real visibility means a direct access
+    to a protected/private member fails here instead of failing on a player's machine.
+  -->
   <!-- ci\ holds tooling and generated stubs, not plugin source. -->
   <ItemGroup>
     <Compile Remove="ci\**\*.cs" />
@@ -128,12 +127,6 @@
     <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" IncludeAssets="compile" PrivateAssets="all" />
     <ProjectReference Include="ci\refs\Assembly-CSharp-firstpass\Assembly-CSharp-firstpass.csproj" Private="false" />
     <ProjectReference Include="ci\refs\Assembly-CSharp\Assembly-CSharp.csproj" Private="false" />
-    <!--
-      The stubs expose the used game members as public, so the access exemption is only needed when the
-      build does not publicize the real assemblies (which bring their own copy of the attribute).
-      Has to come after the Compile Remove above: MSBuild removes items no matter where they were added.
-    -->
-    <Compile Include="ci\IgnoresAccessChecksTo.cs" Link="Shared\IgnoresAccessChecksTo.cs" />
   </ItemGroup>
 
   <!-- Language of the extra row is resolved at runtime; the icon is a self-made 32x32 PNG in the vanilla palette. -->

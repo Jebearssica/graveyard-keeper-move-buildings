@@ -1,5 +1,22 @@
 ﻿# Changelog
 
+## [1.1.6] - 2026-11-01
+
+- Fixed the mod failing on runtimes that enforce member visibility. `BaseCraftGUI.craftery_wgo` is `protected` and
+  `BuildModeLogics._cur_build_zone_id`, `_multi_inventory`, `FloatingWorldGameObject._cells`, `GameSettings._cur_lng`
+  and `WorldGameObject.RedrawVariation()` are `private` in the shipped game assembly. The build loosened them (the
+  declaration stubs declare them public and a local build publicized the game assemblies), so reading them directly
+  compiled but threw `FieldAccessException` / `MethodAccessException` at runtime on a strict runtime: the row could
+  not be added at all, and the craft list repair aborted. They are now reached through reflection (`GameAccess.cs`),
+  which works on every runtime.
+- The build no longer publicizes the game assemblies, and the declaration stubs now keep the real accessibility, so a
+  direct access to a non-public game member fails to compile instead of reaching a release.
+- The local (real game assemblies) and the CI (declaration stubs) build now produce byte-for-byte the same IL, so a
+  release can no longer behave differently from the build that was tested.
+- `SelfTest` passes every `OnCraft` argument explicitly: the stubs cannot carry the game's optional-parameter
+  defaults, and `amount` defaults to 1 in the game while an omitted argument compiled to 0.
+
+
 ## [1.1.5] - 2026-11-01
 
 - Fixed the duplicated *Move building* rows and the empty craft list that showed up after a move: leaving the move

@@ -154,8 +154,9 @@ internal static class SelfTest
             Plugin.Log.LogInfo(
                 $"[SELFTEST] before click: entry active={moveEntry.gameObject.activeSelf}");
 
-            // Same call the row click performs.
-            craftGui.OnCraft(moveEntry.craft_definition);
+            // Same call the row click performs. Every argument is spelled out: the declaration stubs used by the CI build
+            // cannot carry the game's optional-parameter defaults, so an omitted one would compile to default(T) there.
+            craftGui.OnCraft(moveEntry.craft_definition, null, null, 1, null, null);
             var gridShown = BuildGrid.me != null && BuildGrid.me.gameObject.activeSelf;
             Plugin.Log.LogInfo(
                 $"[SELFTEST] after entry click: move_mode={BuildMoveMode.Active}, game_mode={MainGame.me.game_mode}, build_grid={gridShown}");

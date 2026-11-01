@@ -99,7 +99,7 @@ internal static class Emitter
             }
 
             var staticText = field.IsStatic ? "static " : string.Empty;
-            writer.WriteLine($"{pad}    public {staticText}{TypeName(field.FieldType)} {field.Name};");
+            writer.WriteLine($"{pad}    {Visibility(field)} {staticText}{TypeName(field.FieldType)} {field.Name};");
         }
 
         foreach (var propertyUsage in usage.Properties.Values.OrderBy(p => p.Property.Name, StringComparer.Ordinal))
@@ -118,7 +118,8 @@ internal static class Emitter
                     : "{ set { } }";
 
             var staticText = (property.GetMethod ?? property.SetMethod)?.IsStatic == true ? "static " : string.Empty;
-            writer.WriteLine($"{pad}    public {staticText}{TypeName(property.PropertyType)} {property.Name} {accessors}");
+            var visibility = Visibility(property.GetMethod ?? property.SetMethod);
+            writer.WriteLine($"{pad}    {visibility} {staticText}{TypeName(property.PropertyType)} {property.Name} {accessors}");
         }
 
         foreach (var method in usage.Methods.Values.OrderBy(m => m.Name, StringComparer.Ordinal)
@@ -132,7 +133,7 @@ internal static class Emitter
             var constructor = definition.Methods.FirstOrDefault(m => m.FullName == constructorFullName);
             if (constructor != null)
             {
-                writer.WriteLine($"{pad}    public {CleanName(definition.Name)}({Parameters(constructor)}) {{ }}");
+                writer.WriteLine($"{pad}    {Visibility(constructor)} {CleanName(definition.Name)}({Parameters(constructor)}) {{ }}");
             }
         }
 
@@ -156,7 +157,32 @@ internal static class Emitter
         var body = returnType == "void" ? "{ }" : "{ return default; }";
         var name = method.Name;
 
-        writer.WriteLine($"{pad}public {staticText}{returnType} {name}{generic}({Parameters(method)}) {body}");
+        writer.WriteLine($"{pad}{Visibility(method)} {staticText}{returnType} {name}{generic}({Parameters(method)}) {body}");
+    }
+
+    /// <summary>
+    ///     Keeps the real accessibility, so the stub build fails to compile when the plugin starts reading a member that
+    ///     is not public in the game assembly - exactly the mistake that only blows up on a player's runtime.
+    ///     Types stay public: they are only declaration carriers here.
+    /// </summary>
+    private static string Visibility(MethodDefinition? method)
+    {
+        if (method == null || method.IsPublic) return "public";
+        if (method.IsFamilyOrAssembly) return "protected internal";
+        if (method.IsFamily) return "protected";
+        if (method.IsFamilyAndAssembly) return "private protected";
+        if (method.IsAssembly) return "internal";
+        return "private";
+    }
+
+    private static string Visibility(FieldDefinition field)
+    {
+        if (field.IsPublic) return "public";
+        if (field.IsFamilyOrAssembly) return "protected internal";
+        if (field.IsFamily) return "protected";
+        if (field.IsFamilyAndAssembly) return "private protected";
+        if (field.IsAssembly) return "internal";
+        return "private";
     }
 
     private static string Parameters(MethodDefinition method)

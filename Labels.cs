@@ -11,7 +11,7 @@ internal static class Labels
         {
             try
             {
-                var language = GameSettings._cur_lng;
+                var language = GameAccess.GetCurrentLanguage();
                 if (string.IsNullOrEmpty(language) && GameSettings.me != null)
                 {
                     language = GameSettings.me.language;

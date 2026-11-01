@@ -85,10 +85,16 @@ dotnet build -c Release -p:UseGameRefs=false -p:DeployToGame=false -p:BepInExCor
 
 See [ci/README.md](ci/README.md) for how the stubs are generated.
 
-Release builds are compiled with `DebugType=none` and a `PathMap`, so the assembly contains no local file paths.
+Release builds are compiled with `DebugType=none` and a `PathMap`, so the assembly contains no local file paths. The
+game assemblies are referenced as they ship (no publicizer), and the release is built from the same sources with
+identical settings, so the CI artifact is the build that was tested.
 
 ## Implementation notes
 
+- The plugin only links against members that are public in the shipped game assembly; the few `protected`/`private`
+  ones it needs (`BaseCraftGUI.craftery_wgo`, the `BuildModeLogics` zone fields, `FloatingWorldGameObject._cells`,
+  `GameSettings._cur_lng`, `WorldGameObject.RedrawVariation()`) are read through reflection in `GameAccess.cs`, so the
+  mod works on runtimes that enforce member visibility. Both build variants compile to the same IL.
 - A Harmony postfix on `CraftGUI.AddRemoveBuildingItem` inserts the extra row in front of the vanilla *Remove* row
   (both list order and transform order), and a postfix on `CraftGUI.SwitchTab` keeps it visible on every craft tab
   (the vanilla *Remove* row gets the same special treatment).

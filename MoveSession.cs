@@ -300,24 +300,22 @@ internal static class MoveSession
         SaveAndDimSprites(target);
 
         var logics = MainGame.me.build_mode_logics;
-        _savedBuildZoneId = logics._cur_build_zone_id;
-        _savedBuildZone = logics._cur_build_zone;
-        _savedBuildZoneInventory = logics._multi_inventory;
+        _savedBuildZoneId = logics.cur_build_zone_id;
+        _savedBuildZone = logics.cur_build_zone;
+        _savedBuildZoneInventory = logics.multi_inventory;
 
         if (!keepBuildMode)
         {
             MainGame.me.EnterBuildMode();
         }
 
-        logics._cur_build_zone_id = _zoneId;
         // BuildModeGUI.Open() dereferences cur_build_zone, so keep a valid zone around even for objects
-        // that live outside of any zone (the placement check itself only uses cur_build_zone_id).
-        logics._cur_build_zone = _zone ?? MainGame.me.player.GetMyWorldZone();
+        // that live outside of any zone (the placement check itself only uses the zone id).
         // Nothing consumes zone items while moving, and the saved inventory belongs to the desk zone.
         // It has to be put back in End(): BaseCraftGUI.CanCraft() goes through
         // BuildModeLogics.multi_inventory whenever the build zone id is set, so a null there makes the
         // reopened craft window throw and leaves it empty.
-        logics._multi_inventory = null;
+        GameAccess.SetBuildZoneState(logics, _zoneId, _zone ?? MainGame.me.player.GetMyWorldZone(), null);
 
         if (Plugin.ShowBuildGrid.Value)
         {
@@ -337,7 +335,7 @@ internal static class MoveSession
 
         _preview.wobj.variation = target.variation;
         _preview.wobj.variation_2 = target.variation_2;
-        _preview.wobj.RedrawVariation();
+        GameAccess.RedrawVariation(_preview.wobj);
         _previewVariationAtStart = _preview.wobj.variation;
         _preview.RecalculateObjectMask();
 
@@ -435,7 +433,12 @@ internal static class MoveSession
             return false;
         }
 
-        var cells = FloatingWorldGameObject._cells;
+        var cells = GameAccess.GetFloatingCells();
+        if (cells == null)
+        {
+            return false;
+        }
+
         var subZone = BuildGrid.me != null ? BuildGrid.GetCurrentSubZoneID() : string.Empty;
 
         for (var i = 0; i < cells.Count; i++)
@@ -714,7 +717,7 @@ internal static class MoveSession
         if (variationChanged)
         {
             target.variation = newVariation;
-            target.RedrawVariation();
+            GameAccess.RedrawVariation(target);
         }
 
         // Colliders must be live again before any bounds based refresh below.
@@ -803,14 +806,9 @@ internal static class MoveSession
 
             if (_keepBuildMode && MainGame.me != null)
             {
-                var logics = MainGame.me.build_mode_logics;
-                if (logics != null)
-                {
-                    logics._cur_build_zone_id = _savedBuildZoneId;
-                    logics._cur_build_zone = _savedBuildZone;
-                    // SetCurrentBuildZone() no-ops for an unchanged id, so it would never rebuild this.
-                    logics._multi_inventory = _savedBuildZoneInventory;
-                }
+                // SetCurrentBuildZone() no-ops for an unchanged id, so the zone state has to be restored as a whole.
+                GameAccess.SetBuildZoneState(MainGame.me.build_mode_logics, _savedBuildZoneId, _savedBuildZone,
+                    _savedBuildZoneInventory);
 
                 if (_zone != null)
                 {
@@ -860,13 +858,7 @@ internal static class MoveSession
             return;
         }
 
-        var logics = me.build_mode_logics;
-        if (logics != null)
-        {
-            logics._cur_build_zone_id = string.Empty;
-            logics._cur_build_zone = null;
-            logics._multi_inventory = null;
-        }
+        GameAccess.SetBuildZoneState(me.build_mode_logics, string.Empty, null, null);
 
         if (BuildGrid.me != null)
         {

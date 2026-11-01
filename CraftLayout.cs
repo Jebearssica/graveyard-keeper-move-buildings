@@ -50,7 +50,8 @@ internal static class CraftLayout
             return;
         }
 
-        var tabId = craftGui.craftery_wgo != null ? craftGui.craftery_wgo.last_opened_tab : string.Empty;
+        var desk = GameAccess.GetCraftery(craftGui);
+        var tabId = desk != null ? desk.last_opened_tab : string.Empty;
         var active = new List<CraftItemGUI>();
 
         for (var i = craftGui.list_items.Count - 1; i >= 0; i--)
