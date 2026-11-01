@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -12,6 +12,8 @@ namespace MoveBuildings;
 internal static class MoveSession
 {
     private const string PlaceSuffix = "_place";
+    private const string GraveGroundId = "grave_ground";
+    private const string GraveEmptyId = "grave_empty";
     private const float GridSize = 96f;
     private const float PickedUpAlpha = 0.35f;
     private const int BusyMask = 8389121; // layers 0/9/23, the mask BuildGrid.IsCellBusy uses
@@ -113,6 +115,16 @@ internal static class MoveSession
     internal static bool IsMovableForTest(WorldGameObject wgo)
     {
         return IsMovable(wgo);
+    }
+
+    internal static bool HasPutCraftForTest(string objId)
+    {
+        return HasCraft(objId, ObjectCraftDefinition.BuildType.Put);
+    }
+
+    internal static bool HasRemoveCraftForTest(string objId)
+    {
+        return HasCraft(objId, ObjectCraftDefinition.BuildType.Remove);
     }
 
     internal static void CommitForTest()
@@ -230,6 +242,14 @@ internal static class MoveSession
         if (GameBalance.me == null || GameBalance.me.GetDataOrNull<ObjectDefinition>(wgo.obj_id) == null)
         {
             return false;
+        }
+
+        // Graves are built from the graveyard desk but have no Put craft of their own (the body lives in the object's
+        // inventory), so they are matched by their interaction type instead.
+        if (wgo.obj_def.interaction_type == ObjectDefinition.InteractionType.Grave ||
+            wgo.obj_id == GraveGroundId || wgo.obj_id == GraveEmptyId)
+        {
+            return true;
         }
 
         if (HasCraft(wgo.obj_id, ObjectCraftDefinition.BuildType.Put))
@@ -964,3 +984,4 @@ internal static class MoveSession
         return bounds.HasValue ? Describe(bounds.Value.center) : "(unknown)";
     }
 }
+

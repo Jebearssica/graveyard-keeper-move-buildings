@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## [1.1.3] - 2026-11-01
+
+- Graves can be moved now. They have no build craft of their own (the body is stored in the object), so they are
+  matched by their grave interaction type instead of a `Put` craft. A buried body stays in the object while it is
+  carried - verified in game: the same `body` item before and after the move.
+
+
 ## [1.1.2] - 2026-11-01
 
 - Fixed the *Move building* row landing in the wrong slot: it is now anchored on the vanilla *Remove* row for both the

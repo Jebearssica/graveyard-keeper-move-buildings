@@ -76,6 +76,18 @@ internal static class Demo
                         return;
                     }
 
+                    if (Mode == "graves")
+                    {
+                        DumpGraves();
+                        return;
+                    }
+
+                    if (Mode == "gravemove")
+                    {
+                        StartGraveMove();
+                        return;
+                    }
+
                     PickTargets();
                     return;
 
@@ -204,7 +216,28 @@ internal static class Demo
                     ReopenDesk();
                     return;
 
-                case 12:
+                case 60:
+                    if (_phaseTime < _phaseDelay) { return; }
+                    MoveTheGrave();
+                    return;
+
+                case 61:
+                    if (_phaseTime < _phaseDelay) { return; }
+                    PickTheGrave();
+                    return;
+
+                case 62:
+                    if (Probe())
+                    {
+                        Plugin.Log.LogInfo("[DIAG] grave destination " + _from + " -> " + _to);
+                        Next(63, 1.6f);
+                    }
+                    return;
+
+                case 63:
+                    if (_phaseTime < _phaseDelay) { return; }
+                    PlaceTheGrave();
+                    return;                case 12:
                     if (_phaseTime < _phaseDelay)
                     {
                         return;
@@ -226,6 +259,112 @@ internal static class Demo
     private static readonly List<WorldGameObject> _dumpQueue = new List<WorldGameObject>();
     private static int _dumpIndex;
     private static WorldGameObject _dumpDesk;
+
+    private static WorldGameObject _grave;
+
+    private static void StartGraveMove()
+    {
+        _grave = WorldMap.objs.FirstOrDefault(o => o != null && o.obj_id == "grave_ground" &&
+                                                   MoveSession.IsMovableForTest(o));
+        if (_grave == null)
+        {
+            Plugin.Log.LogWarning("[DIAG] no movable grave_ground found");
+            _phase = 99;
+            return;
+        }
+
+        var desk = WorldMap.objs.FirstOrDefault(o => o != null && o.obj_id == "graveyard_builddesk");
+        if (desk == null)
+        {
+            Plugin.Log.LogWarning("[DIAG] no graveyard desk found");
+            _phase = 99;
+            return;
+        }
+
+        Plugin.Log.LogInfo("[DIAG] grave='" + _grave.obj_id + "' zone='" + _grave.GetMyWorldZoneId() +
+                           "' body=" + (_grave.GetBodyFromInventory() != null) + " movable=True");
+        MainGame.me.OpenBuildObjectGUI(desk);
+        Next(60, 2.2f);
+    }
+
+    private static void MoveTheGrave()
+    {
+        BuildMoveMode.Enter();
+        Next(61, 1.4f);
+    }
+
+    private static void PickTheGrave()
+    {
+        if (!MoveSession.StartFromBuildMode(_grave))
+        {
+            Plugin.Log.LogWarning("[DIAG] could not pick the grave");
+            _phase = 99;
+            return;
+        }
+
+        _from = _grave.transform.position;
+        _to = _from;
+        _probeIndex = 0;
+        _probeFrames = 0;
+        CameraTools.MoveToPos(_from);
+        Next(62, 0f);
+    }
+
+    private static void PlaceTheGrave()
+    {
+        if (!FloatingWorldGameObject.can_be_built)
+        {
+            Plugin.Log.LogWarning("[DIAG] grave destination invalid, cancelling");
+            MoveSession.CancelForDemo();
+            _phase = 99;
+            return;
+        }
+
+        var before = _grave.GetBodyFromInventory();
+        Plugin.Log.LogInfo("[DIAG] grave body before=" + (before != null ? before.id : "<none>"));
+        MoveSession.CommitForTest();
+        var after = _grave.GetBodyFromInventory();
+        Plugin.Log.LogInfo("[DIAG] grave moved to " + _grave.transform.position +
+                           " body after=" + (after != null ? after.id : "<none>") +
+                           " same=" + (before != null && after != null && before == after));
+        _phase = 99;
+    }
+
+    private static void DumpGraves()
+    {
+        Plugin.Log.LogInfo("[DIAG] === craft_obj_data with grave ===");
+        foreach (var craft in GameBalance.me.craft_obj_data)
+        {
+            if (craft == null || craft.out_obj == null) continue;
+            if (craft.out_obj.IndexOf("grave", StringComparison.OrdinalIgnoreCase) < 0) continue;
+            Plugin.Log.LogInfo("[DIAG] craft id='" + craft.id + "' out='" + craft.out_obj + "' type=" + craft.build_type +
+                               " builder='" + string.Join(",", craft.builder_ids) + "' zone='" + craft.sub_zone_id + "'");
+        }
+
+        Plugin.Log.LogInfo("[DIAG] === objects with grave in id ===");
+        foreach (var wgo in WorldMap.objs)
+        {
+            if (wgo == null || wgo.obj_id == null) continue;
+            if (wgo.obj_id.IndexOf("grave", StringComparison.OrdinalIgnoreCase) < 0) continue;
+
+            var layers = new List<string>();
+            foreach (var col in wgo.GetComponentsInChildren<Collider2D>(true))
+            {
+                if (col != null) layers.Add(col.gameObject.layer.ToString());
+            }
+
+            Plugin.Log.LogInfo("[DIAG] obj='" + wgo.obj_id + "' zone='" + wgo.GetMyWorldZoneId() +
+                               "' type=" + (wgo.obj_def != null ? wgo.obj_def.type.ToString() : "?") +
+                               " interaction=" + (wgo.obj_def != null ? wgo.obj_def.interaction_type.ToString() : "?") +
+                               " put=" + MoveSession.HasPutCraftForTest(wgo.obj_id) +
+                               " remove=" + MoveSession.HasRemoveCraftForTest(wgo.obj_id) +
+                               " movable=" + MoveSession.IsMovableForTest(wgo) +
+                               " layers=[" + string.Join(",", layers) + "]");
+        }
+
+        Plugin.Log.LogInfo("[DIAG] graves dump finished");
+        _phase = 99;
+    }
 
     private static void DumpDesks()
     {
@@ -570,6 +709,8 @@ internal static class Demo
     }
 }
 #endif
+
+
 
 
 

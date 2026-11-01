@@ -19,7 +19,7 @@
 
     <BepInExPluginGuid>gk.movebuildings</BepInExPluginGuid>
     <BepInExPluginName>Move Buildings</BepInExPluginName>
-    <BepInExPluginVersion>1.1.2</BepInExPluginVersion>
+    <BepInExPluginVersion>1.1.3</BepInExPluginVersion>
   </PropertyGroup>
 
   <!--
@@ -147,6 +147,7 @@
   </Target>
 
 </Project>
+
 
 
 

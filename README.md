@@ -48,7 +48,9 @@ orientations and zombie-worker links stay untouched.
 
 By default: objects that can be produced by the build menu - i.e. an `ObjectCraftDefinition` with
 `build_type == Put` whose `out_obj` matches the object id (ids are compared without the trailing `_place`, so both
-finished objects and construction sites work). NPCs, mobs, drops and scenery props are ignored.
+finished objects and construction sites work). Graves are included as well: they have no craft of their own, so they
+are matched by their grave interaction, and a buried body stays inside the object while it is carried. NPCs, mobs,
+drops and scenery props are ignored.
 
 Set `AllowNonBuildableObjects` to `true` to also allow any world object that only has a removal craft (trees, rocks,
 quest props).
