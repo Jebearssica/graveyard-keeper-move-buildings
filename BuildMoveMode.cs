@@ -41,7 +41,7 @@ internal static class BuildMoveMode
                 return;
             }
 
-            var existing = FindMoveRow(craftGui);
+            var existing = KeepSingleMoveRow(craftGui);
             if (existing != null)
             {
                 if (!existing.gameObject.activeSelf)
@@ -50,6 +50,14 @@ internal static class BuildMoveMode
                     Reposition(craftGui);
                 }
 
+                return;
+            }
+
+            // A window without any row cannot be laid out or drawn (CanCraft() needs a live craftery), so never
+            // hang the move row off an empty list. Such a window is coming up (or was left half opened by another
+            // mod) and the next open picks the row up again.
+            if (craftGui.list_items == null || craftGui.list_items.Count == 0)
+            {
                 return;
             }
 
@@ -83,25 +91,87 @@ internal static class BuildMoveMode
         }
 
         _lastSafetyCheck = Time.unscaledTime;
+
         EnsureCraftListEntry(craftGui);
     }
 
-    private static CraftItemGUI FindMoveRow(CraftGUI craftGui)
+    private static bool IsMoveRow(CraftItemGUI item)
     {
-        if (craftGui.list_items == null)
+        return item != null && item.craft_definition != null && item.craft_definition.id == MoveCraftId;
+    }
+
+    /// <summary>
+    ///     Keeps the newest move row and drops everything else that carries the move craft id, including rows that
+    ///     were created by an earlier attempt but never made it into the list (a half drawn row stays in the
+    ///     hierarchy as a child of the table, where vanilla never cleans it up).
+    /// </summary>
+    private static CraftItemGUI KeepSingleMoveRow(CraftGUI craftGui)
+    {
+        var rows = new List<CraftItemGUI>();
+
+        if (craftGui.list_items != null)
+        {
+            foreach (var item in craftGui.list_items)
+            {
+                if (IsMoveRow(item) && !rows.Contains(item))
+                {
+                    rows.Add(item);
+                }
+            }
+        }
+
+        if (craftGui.craft_list_grid != null)
+        {
+            foreach (var item in craftGui.craft_list_grid.GetComponentsInChildren<CraftItemGUI>(true))
+            {
+                if (IsMoveRow(item) && !rows.Contains(item))
+                {
+                    rows.Add(item);
+                }
+            }
+        }
+
+        if (rows.Count == 0)
         {
             return null;
         }
 
-        foreach (var item in craftGui.list_items)
+        var kept = rows[0];
+        if (craftGui.list_items != null && !craftGui.list_items.Contains(kept))
         {
-            if (item != null && item.craft_definition != null && item.craft_definition.id == MoveCraftId)
-            {
-                return item;
-            }
+            craftGui.list_items.Add(kept);
         }
 
-        return null;
+        for (var i = 1; i < rows.Count; i++)
+        {
+            DropRow(craftGui, rows[i]);
+        }
+
+        if (rows.Count > 1)
+        {
+            Reposition(craftGui);
+        }
+
+        return kept;
+    }
+
+    private static void DropRow(CraftGUI craftGui, CraftItemGUI row)
+    {
+        if (craftGui.list_items != null)
+        {
+            craftGui.list_items.Remove(row);
+        }
+
+        if (row == null)
+        {
+            return;
+        }
+
+        if (row.gameObject != null)
+        {
+            row.gameObject.SetActive(false);
+            UnityEngine.Object.Destroy(row.gameObject);
+        }
     }
 
     private static void Reposition(CraftGUI craftGui)
@@ -130,8 +200,6 @@ internal static class BuildMoveMode
 
     private static void AddCraftListEntryUnsafe(CraftGUI craftGui)
     {
-        RemoveStaleEntries(craftGui);
-
         var craft = new ObjectCraftDefinition
         {
             id = MoveCraftId,
@@ -140,14 +208,29 @@ internal static class BuildMoveMode
         };
 
         var item = craftGui.craft_item_prefab.Copy();
-        GJL.EnsureChildLabelsHasCorrectFont(item.gameObject, false);
-        item.Draw(craft);
-
-        // Same blue build tile as the neighbouring rows, but with a four-direction arrow.
-        var icon = MoveIcon.Get();
-        if (icon != null && item.item_gui != null && item.item_gui.x1 != null)
+        try
         {
-            item.item_gui.x1.icon.DrawAndResize(icon);
+            GJL.EnsureChildLabelsHasCorrectFont(item.gameObject, false);
+            item.Draw(craft);
+
+            // Same blue build tile as the neighbouring rows, but with a four-direction arrow.
+            var icon = MoveIcon.Get();
+            if (icon != null && item.item_gui != null && item.item_gui.x1 != null)
+            {
+                item.item_gui.x1.icon.DrawAndResize(icon);
+            }
+        }
+        catch
+        {
+            // A row that is not fully drawn keeps the prefab icon and costs and is never destroyed by the game,
+            // because only rows listed in list_items are cleared.
+            if (item != null && item.gameObject != null)
+            {
+                item.gameObject.SetActive(false);
+                UnityEngine.Object.Destroy(item.gameObject);
+            }
+
+            throw;
         }
 
         // Sit directly in front of the "remove" row: appended last it would be scrolled out of view in short lists.
@@ -167,27 +250,6 @@ internal static class BuildMoveMode
         }
 
         Reposition(craftGui);
-    }
-
-    /// <summary>Rows survive a GUI that was closed on the same frame (Unity destroys them a frame later), so drop them.</summary>
-    private static void RemoveStaleEntries(CraftGUI craftGui)
-    {
-        for (var i = craftGui.list_items.Count - 1; i >= 0; i--)
-        {
-            var existing = craftGui.list_items[i];
-            if (existing == null || existing.craft_definition == null ||
-                existing.craft_definition.id != MoveCraftId)
-            {
-                continue;
-            }
-
-            craftGui.list_items.RemoveAt(i);
-            if (existing.gameObject != null)
-            {
-                existing.gameObject.SetActive(false);
-                UnityEngine.Object.Destroy(existing.gameObject);
-            }
-        }
     }
 
     /// <summary>Called when the player picks the move entry in the build desk window.</summary>
@@ -364,24 +426,16 @@ internal static class BuildMoveMode
             return;
         }
 
-        var changed = false;
-        foreach (var item in craftGui.list_items)
+        var item = KeepSingleMoveRow(craftGui);
+        if (item == null)
         {
-            if (item == null || item.craft_definition == null || item.craft_definition.id != MoveCraftId)
-            {
-                continue;
-            }
-
-            if (!item.gameObject.activeSelf)
-            {
-                item.SetActive(true);
-                changed = true;
-            }
+            return;
         }
 
-        if (changed && craftGui.craft_list_grid != null)
+        if (!item.gameObject.activeSelf)
         {
-            craftGui.craft_list_grid.Reposition();
+            item.SetActive(true);
+            Reposition(craftGui);
         }
     }
 

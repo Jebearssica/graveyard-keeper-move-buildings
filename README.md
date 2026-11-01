@@ -93,6 +93,12 @@ Release builds are compiled with `DebugType=none` and a `PathMap`, so the assemb
   (both list order and transform order), and a postfix on `CraftGUI.SwitchTab` keeps it visible on every craft tab
   (the vanilla *Remove* row gets the same special treatment).
 - A Harmony prefix on `CraftGUI.OnCraft` turns the extra row into the pick mode instead of a craft.
+- The move session owns the build zone while it runs, so it saves and restores the zone id, the zone and the zone
+  multi-inventory together. `BaseCraftGUI.CanCraft()` reads `BuildModeLogics.multi_inventory` whenever a zone id is
+  set, and `SetCurrentBuildZone()` does nothing for an unchanged id, so leaving that inventory behind makes every row
+  of the next build window throw.
+- Rows are deduplicated against the whole craft table, not only against `list_items`: the game only destroys rows it
+  knows about, so a row that was never inserted would otherwise survive in the table forever.
 - The row icon is a self-made 32x32 PNG embedded in the DLL, drawn in the vanilla build-tile style (blue tile, white
   four-direction arrow) and registered through `UI2DSprite.DrawAndResize`.
 - The preview and the placement validation reuse the vanilla `FloatingWorldGameObject` API
@@ -122,8 +128,18 @@ Release builds are compiled with `DebugType=none` and a `PathMap`, so the assemb
 
 ## Development
 
-`Demo.cs` is a recording helper for the GIF above. It is compiled only with `-p:Demo=true`, loads the newest save and
-replays a scripted move, so a capture can be taken without touching the mouse. It is never part of a release build.
+`Demo.cs` is a recording and regression helper. It is compiled only with `-p:Demo=true` and is never part of a
+release build. It loads the newest save and drives the mod through the engine instead of the mouse; the mode is picked
+with the `GK_DEMO_MODE` environment variable:
+
+- `play` (default) - replays a scripted move with moves of its own choosing, then reopens the build desk and dumps the
+  resulting craft list.
+- `dump` - opens the home build desk twice, the farm desk and the tavern desk, and dumps every craft list, so a window
+  that keeps a leftover row or fails to lay out its rows is visible in the log (`items=` vs `children=`).
+- `graves` / `gravemove` - dump the grave crafts and move a buried grave, logging the body item before and after.
+
+Each dump prints `items=` (rows the game knows), `children=` (rows in the table) and per-row ids, so
+`children = items + 1` is the expected, clean state.
 
 ## License
 

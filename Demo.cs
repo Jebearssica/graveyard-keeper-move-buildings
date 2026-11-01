@@ -384,7 +384,10 @@ internal static class Demo
         var home = desks.FirstOrDefault(d => d.obj_id.IndexOf("mf_", StringComparison.OrdinalIgnoreCase) >= 0);
         var tavern = desks.FirstOrDefault(d => d.obj_id.IndexOf("players_tavern", StringComparison.OrdinalIgnoreCase) >= 0);
 
+        // Regression harness for the craft list: every desk is opened once, the home desk twice to cover a reopen,
+        // and DumpLayout() checks that each window holds exactly one move row and no leftover children.
         _dumpQueue.Clear();
+        if (home != null) _dumpQueue.Add(home);
         if (home != null) _dumpQueue.Add(home);
         if (farm != null && farm != home) _dumpQueue.Add(farm);
         if (tavern != null && !_dumpQueue.Contains(tavern)) _dumpQueue.Add(tavern);
@@ -709,10 +712,3 @@ internal static class Demo
     }
 }
 #endif
-
-
-
-
-
-
-

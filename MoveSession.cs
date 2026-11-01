@@ -33,6 +33,7 @@ internal static class MoveSession
     private static bool _keepBuildMode;
     private static string _savedBuildZoneId = string.Empty;
     private static WorldZone _savedBuildZone;
+    private static MultiInventory _savedBuildZoneInventory;
     private static string _lastAvailabilityReport = string.Empty;
 
     internal static bool Active => _target != null;
@@ -301,6 +302,7 @@ internal static class MoveSession
         var logics = MainGame.me.build_mode_logics;
         _savedBuildZoneId = logics._cur_build_zone_id;
         _savedBuildZone = logics._cur_build_zone;
+        _savedBuildZoneInventory = logics._multi_inventory;
 
         if (!keepBuildMode)
         {
@@ -311,6 +313,10 @@ internal static class MoveSession
         // BuildModeGUI.Open() dereferences cur_build_zone, so keep a valid zone around even for objects
         // that live outside of any zone (the placement check itself only uses cur_build_zone_id).
         logics._cur_build_zone = _zone ?? MainGame.me.player.GetMyWorldZone();
+        // Nothing consumes zone items while moving, and the saved inventory belongs to the desk zone.
+        // It has to be put back in End(): BaseCraftGUI.CanCraft() goes through
+        // BuildModeLogics.multi_inventory whenever the build zone id is set, so a null there makes the
+        // reopened craft window throw and leaves it empty.
         logics._multi_inventory = null;
 
         if (Plugin.ShowBuildGrid.Value)
@@ -802,6 +808,8 @@ internal static class MoveSession
                 {
                     logics._cur_build_zone_id = _savedBuildZoneId;
                     logics._cur_build_zone = _savedBuildZone;
+                    // SetCurrentBuildZone() no-ops for an unchanged id, so it would never rebuild this.
+                    logics._multi_inventory = _savedBuildZoneInventory;
                 }
 
                 if (_zone != null)
@@ -838,6 +846,7 @@ internal static class MoveSession
             _keepBuildMode = false;
             _savedBuildZoneId = string.Empty;
             _savedBuildZone = null;
+            _savedBuildZoneInventory = null;
             ColliderStates.Clear();
             SpriteStates.Clear();
         }

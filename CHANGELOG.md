@@ -1,5 +1,21 @@
 ﻿# Changelog
 
+## [1.1.5] - 2026-11-01
+
+- Fixed the duplicated *Move building* rows and the empty craft list that showed up after a move: leaving the move
+  mode cleared the build zone inventory of the game while the zone id stayed set, so the reopened build window threw
+  inside `CanCraft()` for every row it tried to draw and stayed empty. The inventory is now restored together with the
+  zone, which is what the vanilla build/remove flow always leaves in place.
+- Every row this mod creates is drawn inside a guard: a row that fails half way through is destroyed again instead of
+  staying in the table with the prefab icon and the prefab costs (that was the "old fist icon" that appeared next to
+  proper rows).
+- The move row is now deduplicated against the whole craft table, not only against the item list, so rows left behind
+  by a previous window are dropped and exactly one row remains per window.
+- No row is added to a window that has no vanilla rows yet; such a half opened window is no longer filled with rows
+  that can never be positioned.
+- Removed the temporary diagnostic logging from 1.1.4 (the single "Added the move row to '<desk>'" line stays).
+
+
 ## [1.1.4] - 2026-11-01
 
 - The move row is now added from three places: the vanilla "add remove row" hook, the window-open hook and a slow
